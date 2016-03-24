@@ -677,12 +677,17 @@ public:
     virtual void getField(GetFieldRequester::shared_pointer const & requester,std::string const & subField) = 0;
 
     /**
+     * Authorization data changed callback (called on the server side).
+     * @param authorizationData updated auhtorization data, can be <code>null</code>.
+     */
+    virtual void authorizationChanged(epics::pvData::PVStructure::shared_pointer const & authorizationData) {}; //= 0;
+
+    /**
      * Get the access rights for a field of a PVStructure created via a call to createPVStructure.
-     * MATEJ Channel access can store this info via auxInfo.
      * @param pvField The field for which access rights is desired.
      * @return The access rights.
      */
-    virtual AccessRights getAccessRights(epics::pvData::PVField::shared_pointer const & pvField) = 0;
+    virtual AccessRights getAccessRights(epics::pvData::PVField::shared_pointer const & pvField) EPICS_DEPRECATED { return none; };
 
     /**
      * Create a ChannelProcess.
@@ -803,6 +808,13 @@ public:
      * @param connectionState The new connection state.
      */
     virtual void channelStateChange(Channel::shared_pointer const & channel, Channel::ConnectionState connectionState) = 0;
+
+    /**
+     * Get auhtorization data.
+     * @return auhtorization data, can be <code>null</code>.
+     */
+    virtual epics::pvData::PVStructure::shared_pointer getAuthorizationData() const { return epics::pvData::PVStructure::shared_pointer(); }; //= 0;
+
 };
 
 /**

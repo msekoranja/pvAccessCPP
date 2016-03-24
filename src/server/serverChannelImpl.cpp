@@ -12,13 +12,11 @@ namespace epics {
 namespace pvAccess {
 
 ServerChannelImpl::ServerChannelImpl(Channel::shared_pointer const & channel,
-                                     pvAccessID cid, pvAccessID sid,
-                                     ChannelSecuritySession::shared_pointer const & css):
+                                     pvAccessID cid, pvAccessID sid):
     _channel(channel),
     _cid(cid),
     _sid(sid),
-    _destroyed(false),
-    _channelSecuritySession(css)
+    _destroyed(false)
 {
     if (!channel.get())
     {
@@ -39,11 +37,6 @@ pvAccessID ServerChannelImpl::getCID() const
 pvAccessID ServerChannelImpl::getSID() const
 {
     return _sid;
-}
-
-ChannelSecuritySession::shared_pointer ServerChannelImpl::getChannelSecuritySession() const
-{
-    return _channelSecuritySession;
 }
 
 void ServerChannelImpl::registerRequest(const pvAccessID id, Destroyable::shared_pointer const & request)
@@ -82,12 +75,7 @@ void ServerChannelImpl::destroy()
     // destroy all requests
     destroyAllRequests();
 
-    // close channel security session
-    // TODO try catch
-    _channelSecuritySession->close();
-
     // ... and the channel
-    // TODO try catch
     _channel->destroy();
 }
 
@@ -103,8 +91,12 @@ void ServerChannelImpl::printInfo()
 
 void ServerChannelImpl::printInfo(FILE *fd)
 {
-    fprintf(fd,"CLASS        : %s\n", typeid(*this).name());
-    fprintf(fd,"CHANNEL      : %s\n", typeid(*_channel).name());
+    // to avoid clang warning message
+    ServerChannelImpl& this_deref = *this;
+    fprintf(fd,"CLASS        : %s\n", typeid(this_deref).name());
+
+    Channel& channel_deref = *_channel;
+    fprintf(fd,"CHANNEL      : %s\n", typeid(channel_deref).name());
 }
 
 void ServerChannelImpl::destroyAllRequests()

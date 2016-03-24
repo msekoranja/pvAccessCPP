@@ -12,6 +12,12 @@
 using namespace epics::pvData;
 using namespace epics::pvAccess;
 
+epics::pvData::Structure::const_shared_pointer SecuritySession::authorizationDataStructure =
+        getFieldCreate()->createFieldBuilder()->
+        add("authority", pvString)->
+        add("authorizationID", pvString)->
+        createStructure();
+
 NoSecurityPlugin::shared_pointer NoSecurityPlugin::INSTANCE(new NoSecurityPlugin());
 
 CAClientSecurityPlugin::shared_pointer CAClientSecurityPlugin::INSTANCE(new CAClientSecurityPlugin());

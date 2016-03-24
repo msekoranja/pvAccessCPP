@@ -35,7 +35,7 @@ namespace epics {
 namespace pvAccess {
 
 // notify client only on demand, configurable via pvRequest
-// add the following method to ChannelRequest:
+// add the following method to ChannelRequester:
 // void credentialsChanged(std::vector<BitSet> credentials);
 
 
@@ -45,71 +45,6 @@ namespace pvAccess {
 
 // when clients gets initial credentialsChanged call before create is called
 // and then on each change
-
-class epicsShareClass ChannelSecuritySession {
-public:
-    POINTER_DEFINITIONS(ChannelSecuritySession);
-
-    virtual ~ChannelSecuritySession() {}
-
-    /// closes this session
-    virtual void close() = 0;
-
-    // for every authroizeCreate... a release() must be called
-    virtual void release(pvAccessID ioid) = 0;
-
-    // bitSet w/ one bit
-    virtual epics::pvData::Status authorizeCreateChannelProcess(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    virtual epics::pvData::Status authorizeProcess(pvAccessID ioid) = 0;
-
-    // bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateChannelGet(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    virtual epics::pvData::Status authorizeGet(pvAccessID ioid) = 0;
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // write: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateChannelPut(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    virtual epics::pvData::Status authorizePut(
-        pvAccessID ioid,
-        epics::pvData::PVStructure::shared_pointer const & dataToPut,
-        epics::pvData::BitSet::shared_pointer const & fieldsToPut) = 0;
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // write: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // process: bitSet w/ one bit (allowed, not allowed)
-    virtual epics::pvData::Status authorizeCreateChannelPutGet(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    virtual epics::pvData::Status authorizePutGet(
-        pvAccessID ioid,
-        epics::pvData::PVStructure::shared_pointer const & dataToPut,
-        epics::pvData::BitSet::shared_pointer const & fieldsToPut) = 0;
-
-    // bitSet w/ one bit
-    virtual epics::pvData::Status authorizeCreateChannelRPC(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    // one could authorize per operation basis
-    virtual epics::pvData::Status authorizeRPC(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & arguments) = 0;
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateMonitor(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    virtual epics::pvData::Status authorizeMonitor(pvAccessID ioid) = 0;
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest put/get/set length
-    virtual epics::pvData::Status authorizeCreateChannelArray(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & pvRequest) = 0;
-    // use authorizeGet
-    virtual epics::pvData::Status authorizePut(pvAccessID ioid, epics::pvData::PVArray::shared_pointer const & dataToPut) = 0;
-    virtual epics::pvData::Status authorizeSetLength(pvAccessID ioid) = 0;
-
-
-    // introspection authorization
-    virtual epics::pvData::Status authorizeGetField(pvAccessID ioid, std::string const & subField) = 0;
-};
 
 class SecurityPlugin;
 
@@ -124,6 +59,11 @@ public:
 
     virtual ~SecuritySession() {}
 
+    static epics::pvData::Structure::const_shared_pointer authorizationDataStructure;
+
+    // optional (can be null) auhtorization data (e.g. authroization id aka username)
+    virtual epics::pvData::PVStructure::shared_pointer authorizationData() = 0;
+
     // optional (can be null) initialization data for the remote party
     // client to server
     virtual epics::pvData::PVField::shared_pointer initializationData() = 0;
@@ -136,9 +76,6 @@ public:
 
     /// closes this session
     virtual void close() = 0;
-
-    // notification to the client on allowed requests (bitSet, a bit per request)
-    virtual ChannelSecuritySession::shared_pointer createChannelSession(std::string const & channelName) = 0;
 };
 
 class epicsShareClass SecurityPluginControl {
@@ -204,7 +141,6 @@ public:
 class epicsShareClass NoSecurityPlugin :
     public SecurityPlugin,
     public SecuritySession,
-    public ChannelSecuritySession,
     public std::tr1::enable_shared_from_this<NoSecurityPlugin> {
 protected:
     NoSecurityPlugin() {}
@@ -215,6 +151,11 @@ public:
     static NoSecurityPlugin::shared_pointer INSTANCE;
 
     virtual ~NoSecurityPlugin() {}
+
+    // no authorization data
+    virtual epics::pvData::PVStructure::shared_pointer authorizationData() {
+        return epics::pvData::PVStructure::shared_pointer();
+    }
 
     // optional (can be null) initialization data for the remote party
     // client to server
@@ -235,12 +176,6 @@ public:
     /// closes this session
     virtual void close() {
         // noop
-    }
-
-    // notification to the client on allowed requests (bitSet, a bit per request)
-    virtual ChannelSecuritySession::shared_pointer createChannelSession(std::string const & /*channelName*/)
-    {
-        return shared_from_this();
     }
 
     /**
@@ -285,103 +220,6 @@ public:
         epics::pvData::PVField::shared_pointer const & /*data*/) {
         control->authenticationCompleted(epics::pvData::Status::Ok);
         return shared_from_this();
-    }
-
-    // for every authroizeCreate... a release() must be called
-    virtual void release(pvAccessID ioid) {
-        // noop
-    }
-
-    // bitSet w/ one bit
-    virtual epics::pvData::Status authorizeCreateChannelProcess(
-        pvAccessID ioid, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizeProcess(pvAccessID /*ioid*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateChannelGet(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizeGet(pvAccessID /*ioid*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // write: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateChannelPut(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizePut(
-        pvAccessID /*ioid*/,
-        epics::pvData::PVStructure::shared_pointer const & /*dataToPut*/,
-        epics::pvData::BitSet::shared_pointer const & /*fieldsToPut*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // write: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    // process: bitSet w/ one bit (allowed, not allowed)
-    virtual epics::pvData::Status authorizeCreateChannelPutGet(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizePutGet(
-        pvAccessID /*ioid*/,
-        epics::pvData::PVStructure::shared_pointer const & /*dataToPut*/,
-        epics::pvData::BitSet::shared_pointer const & /*fieldsToPut*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // bitSet w/ one bit
-    virtual epics::pvData::Status authorizeCreateChannelRPC(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // one could authorize per operation basis
-    virtual epics::pvData::Status authorizeRPC(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*arguments*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest of the bit per field
-    virtual epics::pvData::Status authorizeCreateMonitor(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizeMonitor(pvAccessID /*ioid*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // read: bitSet w/ one bit (allowed, not allowed) and rest put/get/set length
-    virtual epics::pvData::Status authorizeCreateChannelArray(
-        pvAccessID /*ioid*/, epics::pvData::PVStructure::shared_pointer const & /*pvRequest*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // use authorizeGet
-    virtual epics::pvData::Status authorizePut(
-        pvAccessID /*ioid*/, epics::pvData::PVArray::shared_pointer const & /*dataToPut*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    virtual epics::pvData::Status authorizeSetLength(pvAccessID /*ioid*/) {
-        return epics::pvData::Status::Ok;
-    }
-
-    // introspection authorization
-    virtual epics::pvData::Status authorizeGetField(pvAccessID /*ioid*/, std::string const & /*subField*/) {
-        return epics::pvData::Status::Ok;
     }
 
 };

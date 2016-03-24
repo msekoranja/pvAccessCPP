@@ -38,7 +38,7 @@ public:
      * @param sid channel SID.
      * @param css channel security session.
      */
-    ServerChannelImpl(Channel::shared_pointer const & channel, pvAccessID cid, pvAccessID sid, ChannelSecuritySession::shared_pointer const & css);
+    ServerChannelImpl(Channel::shared_pointer const & channel, pvAccessID cid, pvAccessID sid);
     /*
      * Destructor.
      */
@@ -61,12 +61,6 @@ public:
      * @return channel SID.
      */
     pvAccessID getSID() const;
-
-    /**
-     * Get ChannelSecuritySession instance.
-     * @return the ChannelSecuritySession instance.
-     */
-    ChannelSecuritySession::shared_pointer getChannelSecuritySession() const;
 
     /**
      * Register request
@@ -134,11 +128,6 @@ private:
      * Mutex
      */
     epics::pvData::Mutex _mutex;
-
-    /**
-     * Channel security session.
-     */
-    ChannelSecuritySession::shared_pointer _channelSecuritySession;
 
     /**
      * Destroy all registered requests.

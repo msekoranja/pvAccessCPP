@@ -242,12 +242,12 @@ public:
 protected:
     ServerChannelRequesterImpl(Transport::shared_pointer const & transport,
                                const std::string channelName,
-                               const pvAccessID cid, ChannelSecuritySession::shared_pointer const & css);
+                               const pvAccessID cid);
 public:
     virtual ~ServerChannelRequesterImpl() {}
     static ChannelRequester::shared_pointer create(ChannelProvider::shared_pointer const & provider,
             Transport::shared_pointer const & transport, const std::string channelName,
-            const pvAccessID cid, ChannelSecuritySession::shared_pointer const & css);
+            const pvAccessID cid);
     void channelCreated(const epics::pvData::Status& status, Channel::shared_pointer const & channel);
     void channelStateChange(Channel::shared_pointer const & c, const Channel::ConnectionState isConnected);
     std::string getRequesterName();
@@ -255,12 +255,14 @@ public:
     void lock();
     void unlock();
     void send(epics::pvData::ByteBuffer* buffer, TransportSendControl* control);
+
+    epics::pvData::PVStructure::shared_pointer getAuthorizationData() const;
+
 private:
     ServerChannel::weak_pointer _serverChannel;
     Transport::weak_pointer _transport;
     const std::string _channelName;
     const pvAccessID _cid;
-    ChannelSecuritySession::shared_pointer const & _css;
     epics::pvData::Status _status;
     epics::pvData::Mutex _mutex;
 };
